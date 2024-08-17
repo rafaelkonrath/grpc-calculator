@@ -24,7 +24,12 @@ $ cargo build
 $ cargo run --bin server
 ```
 
-# grpcurl
+### grpcurl
 ```bash
 grpcurl -plaintext -d '{"a": 2, "b": 3}' '[::1]:50051' calculator.Calculator.Add
+```
+
+### Client
+```bash
+$ cargo run --bin client
 ```
