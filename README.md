@@ -33,3 +33,9 @@ grpcurl -plaintext -d '{"a": 2, "b": 3}' '[::1]:50051' calculator.Calculator.Add
 ```bash
 $ cargo run --bin client
 ```
+
+### Counter
+```bash
+grpcurl -H "Authorization: Bearer some-super-secret" -emit-defaults -plaintext \
+'[::1]:50051' calculator.Admin.GetRequestCount
+```

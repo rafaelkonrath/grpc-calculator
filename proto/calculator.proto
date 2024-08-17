@@ -8,11 +8,20 @@ service Calculator {
 }
 
 message CalculationRequest {
-    int64 a = 1;
-    int64 b = 2;
+  int64 a = 1;
+  int64 b = 2;
 }
 
 message CalculationResponse { 
   int64 result = 1;
 }
 
+service Admin {
+    rpc GetRequestCount(GetCountRequest) returns (CounterResponse);
+}
+
+message GetCountRequest {}
+
+message CounterResponse {
+  uint64 count = 1;
+}

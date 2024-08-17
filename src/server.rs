@@ -1,5 +1,8 @@
+use proto::admin_server::{Admin, AdminServer};
 use proto::calculator_server::{Calculator, CalculatorServer};
+use tonic::metadata::MetadataValue;
 use tonic::transport::Server;
+use tonic::{Request, Status};
 
 mod proto {
     tonic::include_proto!("calculator");
@@ -8,8 +11,20 @@ mod proto {
         tonic::include_file_descriptor_set!("calculator_descriptor");
 }
 
+type State = std::sync::Arc<tokio::sync::RwLock<u64>>;
+
 #[derive(Debug, Default)]
-struct CalculatorService {}
+struct CalculatorService {
+    state: State,
+}
+
+impl CalculatorService {
+    async fn increment_counter(&self) {
+        let mut count = self.state.write().await;
+        *count += 1;
+        println!("Request count: {}", *count);
+    }
+}
 
 #[tonic::async_trait]
 impl Calculator for CalculatorService {
@@ -18,6 +33,8 @@ impl Calculator for CalculatorService {
         request: tonic::Request<proto::CalculationRequest>,
     ) -> Result<tonic::Response<proto::CalculationResponse>, tonic::Status> {
         println!("Got a request: {:?}", request);
+
+        self.increment_counter().await;
 
         let input = request.get_ref();
 
@@ -31,6 +48,8 @@ impl Calculator for CalculatorService {
         &self,
         request: tonic::Request<proto::CalculationRequest>,
     ) -> Result<tonic::Response<proto::CalculationResponse>, tonic::Status> {
+        self.increment_counter().await;
+
         let input = request.get_ref();
 
         if input.b == 0 {
@@ -45,11 +64,45 @@ impl Calculator for CalculatorService {
     }
 }
 
+#[derive(Default, Debug)]
+struct AdminService {
+    state: State,
+}
+
+#[tonic::async_trait]
+impl Admin for AdminService {
+    async fn get_request_count(
+        &self,
+        _request: tonic::Request<proto::GetCountRequest>,
+    ) -> Result<tonic::Response<proto::CounterResponse>, tonic::Status> {
+        let count = self.state.read().await;
+        let response = proto::CounterResponse { count: *count };
+        Ok(tonic::Response::new(response))
+    }
+}
+
+fn check_auth(req: Request<()>) -> Result<Request<()>, Status> {
+    let token: MetadataValue<_> = "Bearer some-super-secret".parse().unwrap();
+
+    match req.metadata().get("authorization") {
+        Some(t) if token == t => Ok(req),
+        _ => Err(Status::unauthenticated("No valid auth token")),
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
 
-    let calc = CalculatorService::default();
+    let state = State::default();
+
+    let calc = CalculatorService {
+        state: state.clone(),
+    };
+
+    let admin = AdminService {
+        state: state.clone(),
+    };
 
     let service = tonic_reflection::server::Builder::configure()
         .register_encoded_file_descriptor_set(proto::FILE_DESCRIPTOR_SET)
@@ -58,6 +111,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Server::builder()
         .add_service(service)
         .add_service(CalculatorServer::new(calc))
+        .add_service(AdminServer::with_interceptor(admin, check_auth))
         .serve(addr)
         .await?;
     Ok(())
