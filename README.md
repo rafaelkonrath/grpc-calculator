@@ -23,3 +23,8 @@ $ cargo build
 ```bash
 $ cargo run --bin server
 ```
+
+# grpcurl
+```bash
+grpcurl -plaintext -d '{"a": 2, "b": 3}' '[::1]:50051' calculator.Calculator.Add
+```
