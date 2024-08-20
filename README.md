@@ -1,4 +1,4 @@
-# grpc-calculator using Tonic
+# Rust grpc-calculator using Tonic
 
 You must have the `protoc` Protocol Buffers compiler
 installed, along with the Protocol Buffers resource files.
