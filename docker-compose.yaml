@@ -1,0 +1,20 @@
+services:
+  server:
+    build: .
+    environment:
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/postgres"
+      RUST_LOG: info
+    ports:
+      - 50051:50051
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - 5432:5432

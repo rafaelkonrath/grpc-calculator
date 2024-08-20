@@ -4,9 +4,9 @@ use tonic::metadata::MetadataValue;
 use tonic::transport::Server;
 use tonic::{Request, Status};
 use tracing::{info, instrument};
+use sqlx::postgres::PgPool;
 
-mod config;
-use crate::config::Config;
+
 mod proto {
     tonic::include_proto!("calculator");
 
@@ -14,11 +14,21 @@ mod proto {
         tonic::include_file_descriptor_set!("calculator_descriptor");
 }
 
+mod config;
+use crate::config::Config;
+
 type State = std::sync::Arc<tokio::sync::RwLock<u64>>;
+
+#[derive(Debug, sqlx::FromRow)]
+#[allow(non_snake_case)]
+pub struct DbCalculation {
+    pub sum: i64,
+}
 
 #[derive(Debug, Clone)]
 struct CalculatorService {
     state: State,
+    pool: PgPool,
 }
 
 impl CalculatorService {
@@ -39,12 +49,22 @@ impl Calculator for CalculatorService {
         //println!("Got a request: {:?}", request);
         info!("Got a request: {:?}", request);
 
+       
         self.increment_counter().await;
 
         let input = request.get_ref();
 
+        let query_result =
+        sqlx::query_as::<_, DbCalculation>("SELECT ($1 + $2) AS sum")
+            .bind(input.a)
+            .bind(input.b)
+            .fetch_one(&self.pool)
+            .await;
+
+        let calculate = query_result.unwrap();
+
         let response = proto::CalculationResponse {
-            result: input.a + input.b,
+            result: calculate.sum,
         };
 
         Ok(tonic::Response::new(response))
@@ -100,10 +120,11 @@ fn check_auth(req: Request<()>) -> Result<Request<()>, Status> {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-
-    Config::from_env().expect("Server configuration");
-
-    //let addr = "[::1]:50051".parse()?; //IPV6
+   
+    let config = Config::from_env().expect("Server configuration");
+    
+    let pool = config.db_pool().await.expect("Database configuration");
+    
     let addr = "0.0.0.0:50051".parse().unwrap();
     info!("Server listening on {:?}", addr);
 
@@ -111,6 +132,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let calc = CalculatorService {
         state: state.clone(),
+        pool: pool.clone(),
     };
 
     let admin = AdminService {

@@ -39,3 +39,12 @@ $ cargo run --bin client
 grpcurl -H "Authorization: Bearer some-super-secret" -emit-defaults -plaintext \
 '[::1]:50051' calculator.Admin.GetRequestCount
 ```
+### K6 test
+```bash
+k6 run k6-test.js
+```
+
+### Server with Postgres connection
+```bash
+docker-composer up -d
+```
