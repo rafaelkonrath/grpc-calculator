@@ -1,5 +1,6 @@
 import grpc from 'k6/net/grpc';
 import { check, sleep } from 'k6';
+import { randomIntBetween } from "https://jslib.k6.io/k6-utils/1.0.0/index.js";
 
 const client = new grpc.Client();
 client.load(['proto'], 'calculator.proto');
@@ -18,7 +19,7 @@ export default () => {
     plaintext: true
   });
 
-  const data = { "a": 1012, "b": 1012 };
+  const data = { "a": Math.round(randomIntBetween(1,2000)), "b": Math.round(randomIntBetween(1,2000)) };
   const response = client.invoke('calculator.Calculator/Add', data);
 
   check(response, {
